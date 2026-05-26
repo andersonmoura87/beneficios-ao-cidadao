@@ -1,7 +1,7 @@
 version: "3.9"
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.9.1-python3.11
+  image: beneficios-airflow:latest
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -110,7 +110,6 @@ services:
     command:
       - -c
       - |
-        pip install --no-cache-dir dbt-postgres boto3 minio psycopg2-binary requests tenacity tqdm python-dotenv
         airflow db migrate
         airflow users create \
           --username ${AIRFLOW_ADMIN_USER} \
