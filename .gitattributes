@@ -1,0 +1,18 @@
+# Normaliza quebras de linha para LF em todos os arquivos de texto
+* text=auto eol=lf
+
+# Arquivos que devem ser sempre LF
+*.py    text eol=lf
+*.sql   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.R     text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.sh    text eol=lf
+
+# Arquivos binários — não converter
+*.png   binary
+*.jpg   binary
+*.parquet binary

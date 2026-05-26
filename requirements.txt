@@ -1,0 +1,32 @@
+# HTTP e API
+requests==2.32.3
+tenacity==8.5.0          # retry com backoff exponencial
+
+# Data Lake (MinIO / S3)
+boto3==1.34.131
+minio==7.2.8
+
+# Banco de dados
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.31
+
+# Processamento de dados
+pandas==2.2.2
+pyarrow==16.1.0           # formato Parquet
+python-dotenv==1.0.1
+
+# Progresso e logging
+tqdm==4.66.4
+loguru==0.7.2
+
+# dbt
+dbt-core==1.8.3
+dbt-postgres==1.8.2
+
+# Qualidade de dados
+great-expectations==0.18.15
+
+# Testes
+pytest==8.2.2
+pytest-mock==3.14.0
+responses==0.25.3         # mock de requests HTTP

@@ -1,0 +1,160 @@
+version: "3.9"
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.1-python3.11
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    # Portal da Transparência
+    TRANSPARENCIA_API_KEY: ${TRANSPARENCIA_API_KEY}
+    TRANSPARENCIA_BASE_URL: https://api.portaldatransparencia.gov.br/api-de-dados
+    # MinIO
+    MINIO_ENDPOINT: minio:9000
+    MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+    MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    MINIO_BUCKET_RAW: beneficios-raw
+    # PostgreSQL
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: 5432
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # dbt
+    DBT_PROFILES_DIR: /opt/airflow/dbt_project
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./extractors:/opt/airflow/extractors
+    - ./loaders:/opt/airflow/loaders
+    - ./dbt_project:/opt/airflow/dbt_project
+    - ./logs:/opt/airflow/logs
+    - ./config:/opt/airflow/config
+    - airflow_plugins:/opt/airflow/plugins
+  depends_on:
+    postgres:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+  networks:
+    - elt_network
+
+services:
+  # ─── Banco de dados principal ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: beneficios_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - elt_network
+
+  # ─── Data Lake (S3-compatível) ────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: beneficios_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - elt_network
+
+  # ─── Cria bucket inicial no MinIO ─────────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: beneficios_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+        mc mb --ignore-existing local/beneficios-raw;
+        mc mb --ignore-existing local/beneficios-processed;
+        echo 'Buckets criados.';
+      "
+    networks:
+      - elt_network
+
+  # ─── Airflow: inicialização ────────────────────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    container_name: beneficios_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install --no-cache-dir dbt-postgres boto3 minio psycopg2-binary requests tenacity tqdm python-dotenv
+        airflow db migrate
+        airflow users create \
+          --username ${AIRFLOW_ADMIN_USER} \
+          --password ${AIRFLOW_ADMIN_PASSWORD} \
+          --firstname Admin \
+          --lastname Beneficios \
+          --role Admin \
+          --email ${AIRFLOW_ADMIN_EMAIL} || true
+    environment:
+      <<: *airflow-common-env
+    restart: "no"
+
+  # ─── Airflow: webserver ────────────────────────────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: beneficios_airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ─── Airflow: scheduler ───────────────────────────────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: beneficios_airflow_scheduler
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  minio_data:
+  airflow_plugins:
+
+networks:
+  elt_network:
+    driver: bridge

@@ -1,0 +1,47 @@
+# Segredos — NUNCA commitar
+.env
+
+# Dados brutos e processados
+data/
+
+# Logs
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/.dbt/
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+*.Rproj
+
+# Jupyter
+.ipynb_checkpoints/
+analysis/notebooks/.ipynb_checkpoints/
+
+# Docker volumes locais
+postgres_data/
+minio_data/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

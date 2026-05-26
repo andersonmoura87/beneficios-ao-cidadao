@@ -1,0 +1,42 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Dados brutos carregados do Portal da Transparência"
+    tables:
+      - name: bolsa_familia
+        description: "Benefícios do Bolsa Família por município e mês"
+        columns:
+          - name: mes_competencia
+            description: "Mês de referência no formato YYYYMM"
+          - name: codigo_municipio_ibge
+            description: "Código IBGE do município (7 dígitos)"
+          - name: nis_beneficiario
+            description: "Número de Identificação Social do beneficiário"
+          - name: valor_parcela
+            description: "Valor da parcela paga"
+
+      - name: auxilio_emergencial
+        description: "Auxílio Emergencial COVID-19 (2020–2021)"
+        columns:
+          - name: mes_competencia
+            description: "Mês de referência no formato YYYYMM"
+          - name: cpf_beneficiario
+            description: "CPF do beneficiário (mascarado)"
+
+      - name: bpc
+        description: "Benefício de Prestação Continuada (LOAS)"
+        columns:
+          - name: mes_competencia
+            description: "Mês de referência no formato YYYYMM"
+          - name: uf
+            description: "Unidade Federativa"
+
+      - name: seguro_defeso
+        description: "Seguro Defeso para pescadores artesanais"
+        columns:
+          - name: ano
+            description: "Ano de referência"
+          - name: nis_beneficiario
+            description: "NIS do beneficiário"
