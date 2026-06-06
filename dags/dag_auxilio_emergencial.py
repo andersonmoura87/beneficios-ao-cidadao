@@ -7,12 +7,11 @@ Executado apenas uma vez via trigger manual ou carga inicial.
 from __future__ import annotations
 
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 sys.path.insert(0, "/opt/airflow")
 
@@ -59,7 +58,7 @@ with DAG(
     description="ELT histórico do Auxílio Emergencial COVID-19 (2020–2021)",
     default_args=DEFAULT_ARGS,
     schedule_interval=None,       # somente trigger manual
-    start_date=days_ago(1),
+    start_date=datetime(2020, 4, 1),
     catchup=False,
     max_active_runs=1,
     tags=["beneficios", "auxilio_emergencial", "historico", "elt"],
@@ -79,4 +78,13 @@ with DAG(
         ),
     )
 
-    extract_load >> dbt_run
+    dbt_test = BashOperator(
+        task_id="dbt_test",
+        bash_command=(
+            "cd /opt/airflow/dbt_project && "
+            "dbt test --select stg_auxilio_emergencial "
+            "--profiles-dir /opt/airflow/dbt_project"
+        ),
+    )
+
+    extract_load >> dbt_run >> dbt_test

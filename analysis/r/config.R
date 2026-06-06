@@ -24,6 +24,8 @@ conectar_db <- function() {
 # Paleta de cores por programa
 CORES_PROGRAMAS <- c(
   "Bolsa Família"       = "#1B7A34",
+  "Auxílio Brasil"      = "#00897B",
+  "Novo Bolsa Família"  = "#43A047",
   "Auxílio Emergencial" = "#E07B00",
   "BPC"                 = "#1565C0",
   "Seguro Defeso"       = "#6A1B9A"

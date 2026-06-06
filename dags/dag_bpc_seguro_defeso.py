@@ -60,31 +60,33 @@ def extract_bpc(**context):
 
 
 def extract_seguro_defeso(**context):
-    from extractors.seguro_defeso import SeguroDefEsoExtractor
+    from extractors.seguro_defeso import SeguroDefesoExtractor
     from loaders.minio_loader import MinioLoader
     from loaders.postgres_loader import PostgresLoader
     import pandas as pd
 
     exec_date: datetime = context["data_interval_start"]
-    ano = exec_date.year
+    mes_ano = f"{exec_date.year}{exec_date.month:02d}"
 
-    extractor = SeguroDefEsoExtractor()
+    extractor = SeguroDefesoExtractor()
     minio = MinioLoader()
     buffer: list[dict] = []
     total = 0
 
     with PostgresLoader() as pg:
-        for pagina in extractor.extract(ano_inicio=ano, ano_fim=ano):
+        for pagina in extractor.extract(mes_ano_inicio=mes_ano, mes_ano_fim=mes_ano):
             buffer.extend(pagina)
             total += len(pagina)
 
             if len(buffer) >= 500:
-                minio.upload_parquet(buffer, "seguro_defeso", {"ano": str(ano)})
+                partition = {"ano": mes_ano[:4], "mes": mes_ano[4:]}
+                minio.upload_parquet(buffer, "seguro_defeso", partition)
                 pg.load_dataframe("seguro_defeso", pd.DataFrame(buffer))
                 buffer.clear()
 
         if buffer:
-            minio.upload_parquet(buffer, "seguro_defeso", {"ano": str(ano)})
+            partition = {"ano": mes_ano[:4], "mes": mes_ano[4:]}
+            minio.upload_parquet(buffer, "seguro_defeso", partition)
             pg.load_dataframe("seguro_defeso", pd.DataFrame(buffer))
 
     context["ti"].xcom_push(key="total_seguro_defeso", value=total)
@@ -120,4 +122,13 @@ with DAG(
         ),
     )
 
-    [task_bpc, task_defeso] >> dbt_run
+    dbt_test = BashOperator(
+        task_id="dbt_test",
+        bash_command=(
+            "cd /opt/airflow/dbt_project && "
+            "dbt test --select stg_bpc stg_seguro_defeso "
+            "--profiles-dir /opt/airflow/dbt_project"
+        ),
+    )
+
+    [task_bpc, task_defeso] >> dbt_run >> dbt_test

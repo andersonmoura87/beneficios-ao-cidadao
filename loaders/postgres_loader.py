@@ -29,6 +29,8 @@ DSN = (
 # Mapeamento: nome do benefício → tabela de destino no schema raw
 TABLE_MAP = {
     "bolsa_familia":        "raw.bolsa_familia",
+    "auxilio_brasil":       "raw.auxilio_brasil",
+    "novo_bolsa_familia":   "raw.novo_bolsa_familia",
     "auxilio_emergencial":  "raw.auxilio_emergencial",
     "bpc":                  "raw.bpc",
     "seguro_defeso":        "raw.seguro_defeso",
@@ -126,11 +128,11 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _get_conflict_cols(beneficio: str) -> list[str]:
-    """Colunas que identificam unicamente um registro por benefício."""
-    mapping = {
-        "bolsa_familia":        ["mes_competencia", "codigo_municipio_ibge", "nis_beneficiario"],
-        "auxilio_emergencial":  ["mes_competencia", "codigo_municipio_ibge", "cpf_beneficiario"],
-        "bpc":                  ["mes_competencia", "uf", "nis_beneficiario"],
-        "seguro_defeso":        ["ano", "nis_beneficiario"],
-    }
-    return mapping.get(beneficio, ["id"])
+    """
+    Coluna que identifica unicamente um registro.
+
+    Os endpoints '-por-municipio' devolvem dados agregados em que o campo `id`
+    da API (mapeado para `registro_id`) é a chave única e estável do registro.
+    Usá-la garante idempotência em reexecuções para todos os programas.
+    """
+    return ["registro_id"]

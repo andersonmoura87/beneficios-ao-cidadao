@@ -1,7 +1,7 @@
 """
-DAG: Extração e carga do Bolsa Família.
+DAG: Extração e carga do Novo Bolsa Família (continuação pós-2021 do programa).
 Frequência: mensal (todo dia 10 do mês seguinte — dados ficam disponíveis com ~1 semana de atraso).
-Fluxo: Extract → Upload MinIO → Load PostgreSQL → dbt transform
+Fluxo: Extract → Upload MinIO → Load PostgreSQL → dbt transform → dbt test
 """
 
 from __future__ import annotations
@@ -30,17 +30,16 @@ DEFAULT_ARGS = {
 
 
 def extract_and_load(**context):
-    """Extrai Bolsa Família e carrega no MinIO + PostgreSQL."""
-    from extractors.bolsa_familia import BolsaFamiliaExtractor
+    """Extrai Novo Bolsa Família e carrega no MinIO + PostgreSQL."""
+    from extractors.novo_bolsa_familia import NovoBolsaFamiliaExtractor
     from loaders.minio_loader import MinioLoader
     from loaders.postgres_loader import PostgresLoader
     import pandas as pd
 
-    # Determina o mês de referência (mês anterior à data de execução)
     exec_date: datetime = context["data_interval_start"]
     mes_ano = f"{exec_date.year}{exec_date.month:02d}"
 
-    extractor = BolsaFamiliaExtractor()
+    extractor = NovoBolsaFamiliaExtractor()
     minio = MinioLoader()
 
     batch_size = 500
@@ -54,28 +53,27 @@ def extract_and_load(**context):
 
             if len(buffer) >= batch_size:
                 partition = {"ano": mes_ano[:4], "mes": mes_ano[4:]}
-                minio.upload_parquet(buffer, "bolsa_familia", partition)
-                pg.load_dataframe("bolsa_familia", pd.DataFrame(buffer))
+                minio.upload_parquet(buffer, "novo_bolsa_familia", partition)
+                pg.load_dataframe("novo_bolsa_familia", pd.DataFrame(buffer))
                 buffer.clear()
 
-        # flush final
         if buffer:
             partition = {"ano": mes_ano[:4], "mes": mes_ano[4:]}
-            minio.upload_parquet(buffer, "bolsa_familia", partition)
-            pg.load_dataframe("bolsa_familia", pd.DataFrame(buffer))
+            minio.upload_parquet(buffer, "novo_bolsa_familia", partition)
+            pg.load_dataframe("novo_bolsa_familia", pd.DataFrame(buffer))
 
     context["ti"].xcom_push(key="total_registros", value=total)
 
 
 with DAG(
-    dag_id="elt_bolsa_familia",
-    description="ELT mensal do Bolsa Família (Portal da Transparência)",
+    dag_id="elt_novo_bolsa_familia",
+    description="ELT mensal do Novo Bolsa Família (Portal da Transparência)",
     default_args=DEFAULT_ARGS,
     schedule_interval="0 6 10 * *",  # todo dia 10 às 06h
-    start_date=datetime(2004, 1, 1),
+    start_date=datetime(2023, 3, 1),
     catchup=False,
     max_active_runs=1,
-    tags=["beneficios", "bolsa_familia", "elt"],
+    tags=["beneficios", "novo_bolsa_familia", "elt"],
 ) as dag:
 
     extract_load = PythonOperator(
@@ -87,7 +85,7 @@ with DAG(
         task_id="dbt_transform",
         bash_command=(
             "cd /opt/airflow/dbt_project && "
-            "dbt run --select stg_bolsa_familia mart_beneficios_por_municipio mart_evolucao_temporal mart_ranking_municipios "
+            "dbt run --select stg_novo_bolsa_familia mart_beneficios_por_municipio mart_evolucao_temporal mart_ranking_municipios "
             "--profiles-dir /opt/airflow/dbt_project"
         ),
     )
@@ -96,7 +94,7 @@ with DAG(
         task_id="dbt_test",
         bash_command=(
             "cd /opt/airflow/dbt_project && "
-            "dbt test --select stg_bolsa_familia "
+            "dbt test --select stg_novo_bolsa_familia "
             "--profiles-dir /opt/airflow/dbt_project"
         ),
     )

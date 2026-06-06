@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_bolsa_familia
+    description: "Bolsa Família — camada de limpeza/normalização (view)."
+    columns: &stg_beneficio_cols
+      - name: registro_id
+        description: "Identificador único do registro (vindo do id da API)."
+        tests:
+          - not_null
+          - unique
+      - name: mes_competencia
+        description: "Mês de referência (YYYYMM)."
+        tests:
+          - not_null
+      - name: codigo_ibge
+        description: "Código IBGE do município (7 dígitos)."
+        tests:
+          - not_null
+      - name: uf
+        description: "Sigla da Unidade Federativa (normalizada em maiúsculas)."
+        tests:
+          - accepted_values:
+              values:
+                ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+                 "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+                 "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+      - name: valor
+        description: "Valor total pago (coalesce para 0)."
+        tests:
+          - not_null
+      - name: quantidade_beneficiados
+        description: "Quantidade de beneficiados (coalesce para 0)."
+        tests:
+          - not_null
+
+  - name: stg_auxilio_brasil
+    description: "Auxílio Brasil — camada de limpeza/normalização (view)."
+    columns: *stg_beneficio_cols
+
+  - name: stg_novo_bolsa_familia
+    description: "Novo Bolsa Família — camada de limpeza/normalização (view)."
+    columns: *stg_beneficio_cols
+
+  - name: stg_auxilio_emergencial
+    description: "Auxílio Emergencial — camada de limpeza/normalização (view)."
+    columns: *stg_beneficio_cols
+
+  - name: stg_bpc
+    description: "BPC — camada de limpeza/normalização (view)."
+    columns: *stg_beneficio_cols
+
+  - name: stg_seguro_defeso
+    description: "Seguro Defeso — camada de limpeza/normalização (view)."
+    columns: *stg_beneficio_cols

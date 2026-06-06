@@ -3,40 +3,50 @@ version: 2
 sources:
   - name: raw
     schema: raw
-    description: "Dados brutos carregados do Portal da Transparência"
+    description: >
+      Dados agregados por município/mês/tipo, carregados dos endpoints
+      '-por-municipio' do Portal da Transparência. Todas as tabelas compartilham
+      o mesmo contrato (BeneficioPorMunicipioDTO).
     tables:
       - name: bolsa_familia
-        description: "Benefícios do Bolsa Família por município e mês"
-        columns:
+        description: "Bolsa Família por município (endpoint bolsa-familia-por-municipio)"
+        columns: &beneficio_cols
+          - name: registro_id
+            description: "Identificador único do registro na API (chave primária)"
+            tests:
+              - not_null
+              - unique
           - name: mes_competencia
-            description: "Mês de referência no formato YYYYMM"
+            description: "Mês de referência consultado, formato YYYYMM"
+            tests:
+              - not_null
           - name: codigo_municipio_ibge
             description: "Código IBGE do município (7 dígitos)"
-          - name: nis_beneficiario
-            description: "Número de Identificação Social do beneficiário"
-          - name: valor_parcela
-            description: "Valor da parcela paga"
+          - name: uf
+            description: "Sigla da Unidade Federativa"
+          - name: tipo_descricao
+            description: "Descrição do tipo de benefício"
+          - name: valor
+            description: "Valor total pago no município/mês/tipo"
+          - name: quantidade_beneficiados
+            description: "Número de beneficiados no município/mês/tipo"
+
+      - name: auxilio_brasil
+        description: "Auxílio Brasil por município (transição 11/2021–02/2023)"
+        columns: *beneficio_cols
+
+      - name: novo_bolsa_familia
+        description: "Novo Bolsa Família por município (continuação pós-2021)"
+        columns: *beneficio_cols
 
       - name: auxilio_emergencial
-        description: "Auxílio Emergencial COVID-19 (2020–2021)"
-        columns:
-          - name: mes_competencia
-            description: "Mês de referência no formato YYYYMM"
-          - name: cpf_beneficiario
-            description: "CPF do beneficiário (mascarado)"
+        description: "Auxílio Emergencial COVID-19 por município (2020–2021)"
+        columns: *beneficio_cols
 
       - name: bpc
-        description: "Benefício de Prestação Continuada (LOAS)"
-        columns:
-          - name: mes_competencia
-            description: "Mês de referência no formato YYYYMM"
-          - name: uf
-            description: "Unidade Federativa"
+        description: "Benefício de Prestação Continuada (LOAS) por município"
+        columns: *beneficio_cols
 
       - name: seguro_defeso
-        description: "Seguro Defeso para pescadores artesanais"
-        columns:
-          - name: ano
-            description: "Ano de referência"
-          - name: nis_beneficiario
-            description: "NIS do beneficiário"
+        description: "Seguro Defeso para pescadores artesanais, por município"
+        columns: *beneficio_cols

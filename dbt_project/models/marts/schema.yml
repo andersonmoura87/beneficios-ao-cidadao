@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: mart_beneficios_por_municipio
+    description: "Gastos por município, programa e mês (todos os benefícios consolidados)."
+    columns:
+      - name: mes_competencia
+        tests:
+          - not_null
+      - name: programa
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Bolsa Família", "Auxílio Brasil", "Novo Bolsa Família", "Auxílio Emergencial", "BPC", "Seguro Defeso"]
+      - name: valor_total
+        tests:
+          - not_null
+
+  - name: mart_evolucao_temporal
+    description: "Evolução temporal nacional dos gastos por programa."
+    columns:
+      - name: mes_competencia
+        tests:
+          - not_null
+      - name: programa
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Bolsa Família", "Auxílio Brasil", "Novo Bolsa Família", "Auxílio Emergencial", "BPC", "Seguro Defeso"]
+      - name: valor_total_nacional
+        tests:
+          - not_null
+
+  - name: mart_ranking_municipios
+    description: "Ranking anual de municípios por valor total recebido."
+    columns:
+      - name: ano
+        tests:
+          - not_null
+      - name: valor_total_ano
+        tests:
+          - not_null
+      - name: ranking_nacional
+        tests:
+          - not_null

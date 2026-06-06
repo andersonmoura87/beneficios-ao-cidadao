@@ -6,7 +6,7 @@
 }}
 
 with source as (
-    select * from {{ source('raw', 'bpc') }}
+    select * from {{ source('raw', 'auxilio_brasil') }}
 ),
 
 renamed as (

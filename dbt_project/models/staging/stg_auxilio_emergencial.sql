@@ -11,22 +11,24 @@ with source as (
 
 renamed as (
     select
-        mes_competencia::char(6)                    as mes_competencia,
-        left(mes_competencia, 4)::int               as ano,
-        right(mes_competencia, 2)::int              as mes,
-        codigo_municipio_ibge::varchar(7)           as codigo_ibge,
+        registro_id,
+        mes_competencia::char(6)                        as mes_competencia,
+        left(mes_competencia, 4)::int                   as ano,
+        right(mes_competencia, 2)::int                  as mes,
+        codigo_municipio_ibge::varchar(7)               as codigo_ibge,
         nome_municipio,
-        upper(trim(uf))::char(2)                    as uf,
-        cpf_beneficiario,
-        nis_beneficiario,
-        nome_beneficiario,
-        coalesce(valor_parcela, 0)::numeric(12, 2)  as valor_parcela,
-        coalesce(quantidade_parcelas, 0)            as quantidade_parcelas,
+        codigo_regiao,
+        nome_regiao,
+        upper(trim(uf))::char(2)                        as uf,
+        tipo_id,
+        tipo_descricao,
+        coalesce(valor, 0)::numeric(18, 2)              as valor,
+        coalesce(quantidade_beneficiados, 0)::bigint    as quantidade_beneficiados,
         _extracted_at
     from source
     where
         mes_competencia is not null
-        and cpf_beneficiario is not null
+        and codigo_municipio_ibge is not null
 )
 
 select * from renamed

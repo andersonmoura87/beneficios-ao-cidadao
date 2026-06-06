@@ -7,12 +7,11 @@ Sequência: municípios IBGE → BPC → Bolsa Família → Auxílio Emergencial
 from __future__ import annotations
 
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 sys.path.insert(0, "/opt/airflow")
 
@@ -48,8 +47,8 @@ def extract_bpc_historico():
         for pag in ext.extract(mes_ano_inicio="200401"):
             buf.extend(pag)
             if len(buf) >= 1000:
-                ano, mes = buf[0].get("mesCompetencia", "000000")[:4], buf[0].get("mesCompetencia", "000000")[4:]
-                minio.upload_parquet(buf, "bpc", {"ano": ano, "mes": mes})
+                mes_comp = str(buf[0].get("mes_competencia", "000000"))
+                minio.upload_parquet(buf, "bpc", {"ano": mes_comp[:4], "mes": mes_comp[4:]})
                 pg.load_dataframe("bpc", pd.DataFrame(buf))
                 buf.clear()
         if buf:
@@ -79,6 +78,50 @@ def extract_bolsa_familia_historico():
             pg.load_dataframe("bolsa_familia", pd.DataFrame(buf))
 
 
+def extract_auxilio_brasil_historico():
+    from extractors.auxilio_brasil import AuxilioBrasilExtractor
+    from loaders.minio_loader import MinioLoader
+    from loaders.postgres_loader import PostgresLoader
+    import pandas as pd
+
+    ext = AuxilioBrasilExtractor()
+    minio = MinioLoader()
+    buf: list[dict] = []
+
+    with PostgresLoader() as pg:
+        for pag in ext.extract():
+            buf.extend(pag)
+            if len(buf) >= 1000:
+                minio.upload_parquet(buf, "auxilio_brasil", {"tipo": "historico"})
+                pg.load_dataframe("auxilio_brasil", pd.DataFrame(buf))
+                buf.clear()
+        if buf:
+            minio.upload_parquet(buf, "auxilio_brasil", {"tipo": "historico"})
+            pg.load_dataframe("auxilio_brasil", pd.DataFrame(buf))
+
+
+def extract_novo_bolsa_familia_historico():
+    from extractors.novo_bolsa_familia import NovoBolsaFamiliaExtractor
+    from loaders.minio_loader import MinioLoader
+    from loaders.postgres_loader import PostgresLoader
+    import pandas as pd
+
+    ext = NovoBolsaFamiliaExtractor()
+    minio = MinioLoader()
+    buf: list[dict] = []
+
+    with PostgresLoader() as pg:
+        for pag in ext.extract(mes_ano_inicio="202303"):
+            buf.extend(pag)
+            if len(buf) >= 1000:
+                minio.upload_parquet(buf, "novo_bolsa_familia", {"tipo": "historico"})
+                pg.load_dataframe("novo_bolsa_familia", pd.DataFrame(buf))
+                buf.clear()
+        if buf:
+            minio.upload_parquet(buf, "novo_bolsa_familia", {"tipo": "historico"})
+            pg.load_dataframe("novo_bolsa_familia", pd.DataFrame(buf))
+
+
 def extract_auxilio_historico():
     from extractors.auxilio_emergencial import AuxilioEmergencialExtractor
     from loaders.minio_loader import MinioLoader
@@ -102,17 +145,17 @@ def extract_auxilio_historico():
 
 
 def extract_defeso_historico():
-    from extractors.seguro_defeso import SeguroDefEsoExtractor
+    from extractors.seguro_defeso import SeguroDefesoExtractor
     from loaders.minio_loader import MinioLoader
     from loaders.postgres_loader import PostgresLoader
     import pandas as pd
 
-    ext = SeguroDefEsoExtractor()
+    ext = SeguroDefesoExtractor()
     minio = MinioLoader()
     buf: list[dict] = []
 
     with PostgresLoader() as pg:
-        for pag in ext.extract(ano_inicio=2013):
+        for pag in ext.extract(mes_ano_inicio="201301"):
             buf.extend(pag)
             if len(buf) >= 1000:
                 minio.upload_parquet(buf, "seguro_defeso", {"tipo": "historico"})
@@ -128,7 +171,7 @@ with DAG(
     description="Carga histórica de todos os benefícios — executar apenas uma vez",
     default_args=DEFAULT_ARGS,
     schedule_interval=None,   # somente trigger manual
-    start_date=days_ago(1),
+    start_date=datetime(2020, 1, 1),
     catchup=False,
     max_active_runs=1,
     tags=["beneficios", "historico", "carga-inicial", "elt"],
@@ -147,6 +190,16 @@ with DAG(
     t_bf = PythonOperator(
         task_id="extract_bolsa_familia",
         python_callable=extract_bolsa_familia_historico,
+    )
+
+    t_ab = PythonOperator(
+        task_id="extract_auxilio_brasil",
+        python_callable=extract_auxilio_brasil_historico,
+    )
+
+    t_nbf = PythonOperator(
+        task_id="extract_novo_bolsa_familia",
+        python_callable=extract_novo_bolsa_familia_historico,
     )
 
     t_ae = PythonOperator(
@@ -170,4 +223,4 @@ with DAG(
     )
 
     # Sequencial para respeitar rate limits
-    t_municipios >> t_bpc >> t_bf >> t_ae >> t_sd >> t_dbt
+    t_municipios >> t_bpc >> t_bf >> t_ab >> t_nbf >> t_ae >> t_sd >> t_dbt
